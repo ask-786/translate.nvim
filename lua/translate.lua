@@ -76,62 +76,60 @@ local function translate_text(text, source_lang, target_lang, callback)
 end
 
 function M.translate()
-	function M.translate()
-		if not config.key or config.key == '' then
-			vim.notify(
-				'No Google Translate API key set. Use require("...").setup({ key = "..." })',
-				vim.log.levels.ERROR
+	if not config.key or config.key == '' then
+		vim.notify(
+			'No Google Translate API key set. Use require("...").setup({ key = "..." })',
+			vim.log.levels.ERROR
+		)
+		return
+	end
+
+	local mode = vim.api.nvim_get_mode().mode
+
+	local function handle_translation(text)
+		local function ask_target(source_lang)
+			vim.ui.input(
+				{ prompt = 'Translate to (e.g., "en", "fr"): ' },
+				function(target_lang)
+					if not target_lang or target_lang == '' then
+						return
+					end
+					translate_text(text, source_lang, target_lang, function(result)
+						vim.notify('Translation: ' .. result)
+					end)
+				end
 			)
+		end
+
+		if config.translate_from then
+			ask_target(config.translate_from)
+		else
+			vim.ui.input(
+				{ prompt = 'Translate from (e.g., "fr", or "auto"): ' },
+				function(source_lang)
+					if not source_lang or source_lang == '' then
+						return
+					end
+					ask_target(source_lang)
+				end
+			)
+		end
+	end
+
+	if mode:match('v') then
+		local text = get_visual_selection()
+		if not text or text == '' then
+			vim.notify('No text selected', vim.log.levels.WARN)
 			return
 		end
-
-		local mode = vim.api.nvim_get_mode().mode
-
-		local function handle_translation(text)
-			local function ask_target(source_lang)
-				vim.ui.input(
-					{ prompt = 'Translate to (e.g., "en", "fr"): ' },
-					function(target_lang)
-						if not target_lang or target_lang == '' then
-							return
-						end
-						translate_text(text, source_lang, target_lang, function(result)
-							vim.notify('Translation: ' .. result)
-						end)
-					end
-				)
-			end
-
-			if config.translate_from then
-				ask_target(config.translate_from)
-			else
-				vim.ui.input(
-					{ prompt = 'Translate from (e.g., "fr", or "auto"): ' },
-					function(source_lang)
-						if not source_lang or source_lang == '' then
-							return
-						end
-						ask_target(source_lang)
-					end
-				)
-			end
-		end
-
-		if mode:match('v') then
-			local text = get_visual_selection()
+		handle_translation(text)
+	else
+		vim.ui.input({ prompt = 'Enter text to translate: ' }, function(text)
 			if not text or text == '' then
-				vim.notify('No text selected', vim.log.levels.WARN)
 				return
 			end
 			handle_translation(text)
-		else
-			vim.ui.input({ prompt = 'Enter text to translate: ' }, function(text)
-				if not text or text == '' then
-					return
-				end
-				handle_translation(text)
-			end)
-		end
+		end)
 	end
 end
 
